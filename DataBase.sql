@@ -57,3 +57,10 @@ CREATE TABLE IF NOT EXISTS Message (
     lu BOOLEAN NOT NULL, -- Changed BOOL to BOOLEAN
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
+CREATE TABLE IF NOT EXISTS JournalAction (
+    id VARCHAR(50) PRIMARY KEY,
+    action_type VARCHAR(100) NOT NULL,
+    action_date DATETIME NOT NULL,
+    actor VARCHAR(100),
+    details VARCHAR(255)
+    );
