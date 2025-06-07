@@ -72,7 +72,7 @@ public class Agent implements ServiceAuthentification {
         if (agent != null && agent.getMotDePasseHash().equals(mdp)) {
             System.out.println("Authentification de l'agent " + login + " réussie.");
             // Log de l'action d'authentification
-            JournalAction.logAction("Authentification", LocalDateTime.now(), login, "Agent authentifié");
+            Journal.logAction("Authentification", LocalDateTime.now(), login, "Agent authentifié");
             return true;
         }
         System.out.println("Échec de l'authentification pour l'agent " + login + ".");
@@ -89,7 +89,7 @@ public class Agent implements ServiceAuthentification {
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
                 System.out.println("Compte " + compteNumero + " bloqué avec succès par l'agent " + this.login + ".");
-                JournalAction.logAction("Bloquer Compte", LocalDateTime.now(), this.login, "Compte " + compteNumero + " bloqué.");
+                Journal.logAction("Bloquer Compte", LocalDateTime.now(), this.login, "Compte " + compteNumero + " bloqué.");
                 return true;
             }
         } catch (SQLException e) {
@@ -106,7 +106,7 @@ public class Agent implements ServiceAuthentification {
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
                 System.out.println("Compte " + compteNumero + " débloqué avec succès par l'agent " + this.login + ".");
-                JournalAction.logAction("Débloquer Compte", LocalDateTime.now(), this.login, "Compte " + compteNumero + " débloqué.");
+                Journal.logAction("Débloquer Compte", LocalDateTime.now(), this.login, "Compte " + compteNumero + " débloqué.");
                 return true;
             }
         } catch (SQLException e) {
@@ -130,7 +130,7 @@ public class Agent implements ServiceAuthentification {
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
                 System.out.println("Client " + nom + " " + prenom + " ajouté avec succès par l'agent " + this.login + ".");
-                JournalAction.logAction("Ajouter Client", LocalDateTime.now(), this.login, "Client " + id + " ajouté.");
+                Journal.logAction("Ajouter Client", LocalDateTime.now(), this.login, "Client " + id + " ajouté.");
                 return true;
             }
         } catch (SQLException e) {
@@ -201,7 +201,7 @@ public class Agent implements ServiceAuthentification {
                 if (affectedRows > 0) {
                     conn.commit(); // Valide la transaction
                     System.out.println("Client " + clientId + " et toutes ses données associées supprimés avec succès par l'agent " + this.login + ".");
-                    JournalAction.logAction("Supprimer Client", LocalDateTime.now(), this.login, "Client " + clientId + " supprimé.");
+                    Journal.logAction("Supprimer Client", LocalDateTime.now(), this.login, "Client " + clientId + " supprimé.");
                     return true;
                 } else {
                     conn.rollback(); // Annule la transaction
@@ -239,7 +239,7 @@ public class Agent implements ServiceAuthentification {
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
                 System.out.println("Message " + messageId + " marqué comme lu par l'agent " + this.login + ".");
-                JournalAction.logAction("Marquer Message Lu", LocalDateTime.now(), this.login, "Message " + messageId + " marqué lu.");
+                Journal.logAction("Marquer Message Lu", LocalDateTime.now(), this.login, "Message " + messageId + " marqué lu.");
                 return true;
             }
         } catch (SQLException e) {
@@ -248,23 +248,5 @@ public class Agent implements ServiceAuthentification {
         return false;
     }
 
-    static class JournalAction {
-        public static boolean logAction(String actionType, LocalDateTime date, String actor, String details) {
 
-            String sql = "INSERT INTO JournalAction (id, action_type, action_date, actor, details) VALUES (?, ?, ?, ?, ?)";
-            try (Connection conn = ConnectionBD.getConnection();
-                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setString(1, id);
-                pstmt.setString(2, actionType);
-                pstmt.setTimestamp(3, Timestamp.valueOf(date));
-                pstmt.setString(4, actor);
-                pstmt.setString(5, details);
-                int affectedRows = pstmt.executeUpdate();
-                return affectedRows > 0;
-            } catch (SQLException e) {
-                System.err.println("Erreur lors de l'enregistrement de l'action dans le journal: " + e.getMessage());
-                return false;
-            }
-        }
-    }
 }
