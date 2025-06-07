@@ -1,5 +1,10 @@
 package org.example.classes;
 
+import java.sql.SQLException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import org.example.database.ConnectionBD;
 import java.util.ArrayList;
 
 public class Client implements ServiceAuthentification{
@@ -73,12 +78,42 @@ public class Client implements ServiceAuthentification{
         return listComptes;
     }
 
-    public void setListComptes(ArrayList<Compte> listComptes) {
+    public void fectchComtes() {
         this.listComptes = listComptes;
     }
 
     @Override
-    public boolean sauthetifier(String email,String mdp) {
+    public boolean sauthetifier (String email, String mdp) {
+        Connection conn = null;
+        PreparedStatement preparedStatement = null;
+        ResultSet resultSet = null;
+        try {
+            conn = ConnectionBD.getConnection();
+            String sql = "SELECT mot_de_passe_hash FROM clients WHERE email = ?";
+            preparedStatement = conn.prepareStatement(sql);
+            preparedStatement.setString(1, email);
+            resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+                String storedPasswordHash = resultSet.getString("mot_de_passe_hash");
+
+                // we might need to encrypt to hash the password live and comprare it to the sotred hash in the database
+
+                return mdp.equals(storedPasswordHash);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+
+            try {
+                if (resultSet != null) resultSet.close();
+                if (preparedStatement != null) preparedStatement.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
         return false;
     }
+
 }

@@ -8,7 +8,7 @@ public class ConnectionBD {
         Connection conn = null;
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/java_test", "root", "rootroot");
+            conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/banking_system_db", "root", "rootroot");
             System.out.println("connexion reussite");
 
         } catch (Exception e) {
