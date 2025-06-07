@@ -1,0 +1,97 @@
+@startuml BankingSystem
+
+abstract class Compte {
+ - RIB: String
+ - Type: String
+ - solde: double
+ - estBlockee: boolean 
+ - dateOuverture: LocalDate 
+ + deposer(montant: double): boolean 
+ + abstract retirer(montant: double): boolean  
+}
+
+class CompteCourant {
+ - decouvertAutorise: double 
+}
+
+class CompteEpargne {
+ - tauxInteret: double
+ + calculerInterets(): double
+}
+
+class Client {
+ - nom: String
+ - agence : String
+ - prenom: String 
+ - email: String
+ - telephone: String 
+ - adresse: String 
+ - motDePasseHash: String 
+ - comptes: ArrayList<Compte>
+ + ajouterCompte(c: Compte): boolean 
+ + effectuerVirement(compteSource: Compte, compteDestination: Compte, montant: double): boolean 
+ + Message createMessage()  
+}
+
+class Transaction {
+ - id: String 
+ - montant: double
+ - date: LocalDateTime 
+ - description: String 
+ - compteSourceId: String 
+ - compteDestinationId: String 
+}
+
+class Agent {
+ - login: String
+ - motDePasseHash: String
+ + bolean bloquerCompte(Compte c) 
+ + bolean debloquerCompte(Compte c)
+ + void consulterClients() 
+ + void consulterComptes() 
+ + void consulterTransactions()
+ + void consulterMessage()
+ + ajouterClient():
+ + SupprimerClient():
+}
+
+
+class Message {
+ - id: String 
+ - sujet: String
+ - contenu: String
+ - date: LocalDateTime 
+ - expediteur: clientId
+ - lu: boolean 
+}
+
+class JournalAction {
+ - action: String
+ - date: LocalDateTime 
+ - acteur: String 
+ - details: String 
+}
+
+interface AuthentificationService{
+    + boolean authentifier():
+
+} 
+
+CompteCourant --|> Compte
+CompteEpargne --|> Compte
+
+Client "1" o-- "0..*" Compte : possede
+Transaction "0..*" -- "1" Compte : source
+Transaction "0..*" -- "0..1" Compte : destination
+
+ Client ..|>  AuthentificationService
+ Agent ..|>  AuthentificationService
+
+
+Message "0..*" -- "1" Client : estEnvoyePar
+Message "0..*" -- "1" Agent : estRecuPar
+
+JournalAction "0..*" -- "1" Agent : generePar
+JournalAction "0..*" -- "1" Client : generePar
+
+@enduml
