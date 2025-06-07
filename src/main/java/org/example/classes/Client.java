@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 package org.example.classes;
 
 import java.sql.SQLException;
@@ -85,7 +83,7 @@ public class Client implements ServiceAuthentification{
     }
 
     @Override
-    public boolean sauthetifier (String email, String mdp) {
+    public boolean sauthentifier (String email, String mdp) {
         Connection conn = null;
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
@@ -119,4 +117,3 @@ public class Client implements ServiceAuthentification{
     }
 
 }
->>>>>>> 3a986c5dedb08eddb5951a2dbde989a2ab779feb
