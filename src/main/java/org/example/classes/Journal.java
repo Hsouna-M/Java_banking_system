@@ -10,21 +10,19 @@ import java.time.LocalDateTime;
 
 public class Journal {
 
-        public static boolean logAction(String id , String actionType, LocalDateTime date, String actor, String details) {
-
-            String sql = "INSERT INTO JournalAction (id, action_type, action_date, actor, details) VALUES (?, ?, ?, ?, ?)";
-            try (Connection conn = ConnectionBD.getConnection();
-                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setString(1, id);
-                pstmt.setString(2, actionType);
-                pstmt.setTimestamp(3, Timestamp.valueOf(date));
-                pstmt.setString(4, actor);
-                pstmt.setString(5, details);
-                int affectedRows = pstmt.executeUpdate();
-                return affectedRows > 0;
-            } catch (SQLException e) {
-                System.err.println("Erreur lors de l'enregistrement de l'action dans le journal: " + e.getMessage());
-                return false;
-            }
+    public static boolean logAction(String actionType, LocalDateTime date, String actor, String details) {
+        String sql = "INSERT INTO JournalAction (action_type, action_date, actor, details) VALUES (?, ?, ?, ?)";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, actionType);
+            pstmt.setTimestamp(2, Timestamp.valueOf(date));
+            pstmt.setString(3, actor);
+            pstmt.setString(4, details);
+            pstmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la journalisation de l'action: " + e.getMessage());
         }
+        return false;
     }
+}

@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS transaction (
 
 -- Table pour les messages
 CREATE TABLE IF NOT EXISTS Message (
-    id VARCHAR(50) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     sujet VARCHAR(50) NOT NULL,
     contenu VARCHAR(255) NOT NULL, -- Corrected 'contenue' to 'contenu' and added appropriate length
     date_message DATETIME NOT NULL, -- Changed 'date' to 'date_message' to avoid keyword conflict and added appropriate type
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS Message (
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 CREATE TABLE IF NOT EXISTS JournalAction (
-    id VARCHAR(50) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     action_type VARCHAR(100) NOT NULL,
     action_date DATETIME NOT NULL,
     actor VARCHAR(100),

@@ -8,17 +8,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Agent implements ServiceAuthentification {
-    private static String id;
+    private String id;
     private String login;
     private String motDePasseHash;
 
-    // Constructeur pour un nouvel agent
     public Agent(String login, String motDePasseHash) {
         this.login = login;
         this.motDePasseHash = motDePasseHash;
     }
-
-    // Constructeur pour récupérer un agent existant de la base de données
 
     public Agent(String id, String login, String motDePasseHash) {
         this.id = id;
@@ -37,7 +34,6 @@ public class Agent implements ServiceAuthentification {
     public String getMotDePasseHash() {
         return motDePasseHash;
     }
-
     public void setId(String id) {
         this.id = id;
     }
@@ -70,16 +66,19 @@ public class Agent implements ServiceAuthentification {
         Agent agent = getAgentByLogin(login);
 
         if (agent != null && agent.getMotDePasseHash().equals(mdp)) {
+
+            this.id = agent.getId();
+            this.login = agent.getLogin();
+            this.motDePasseHash = agent.getMotDePasseHash();
+
             System.out.println("Authentification de l'agent " + login + " réussie.");
-            // Log de l'action d'authentification
+            // Journalisation de l'action d'authentification
             Journal.logAction("Authentification", LocalDateTime.now(), login, "Agent authentifié");
             return true;
         }
         System.out.println("Échec de l'authentification pour l'agent " + login + ".");
         return false;
     }
-
-
 
     public boolean bloquerCompte(String compteNumero) {
         String sql = "UPDATE compte SET estBlockee = TRUE WHERE numero = ?";
@@ -89,7 +88,7 @@ public class Agent implements ServiceAuthentification {
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
                 System.out.println("Compte " + compteNumero + " bloqué avec succès par l'agent " + this.login + ".");
-                Journal.logAction("Bloquer Compte", LocalDateTime.now(), this.login, "Compte " + compteNumero + " bloqué.");
+                Journal.logAction("Blocage Compte", LocalDateTime.now(), login, "Compte " + compteNumero + " bloqué");
                 return true;
             }
         } catch (SQLException e) {
@@ -106,7 +105,7 @@ public class Agent implements ServiceAuthentification {
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
                 System.out.println("Compte " + compteNumero + " débloqué avec succès par l'agent " + this.login + ".");
-                Journal.logAction("Débloquer Compte", LocalDateTime.now(), this.login, "Compte " + compteNumero + " débloqué.");
+                Journal.logAction("Déblocage Compte", LocalDateTime.now(), login, "Compte " + compteNumero + " débloqué");
                 return true;
             }
         } catch (SQLException e) {
@@ -116,26 +115,27 @@ public class Agent implements ServiceAuthentification {
     }
 
     public boolean ajouterClient(String nom, String prenom, String email, String telephone, String adresse, String motDePasseHash) {
-
-        String sql = "INSERT INTO clients (id, nom, prenom, email, telephone, adresse, mot_de_passe_hash) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        // L'ID du client est maintenant généré automatiquement par la base de données (AUTO_INCREMENT).
+        // Nous n'incluons donc pas la colonne 'id' dans l'instruction INSERT.
+        String sql = "INSERT INTO clients (nom, prenom, email, telephone, adresse, mot_de_passe_hash) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, id);
-            pstmt.setString(2, nom);
-            pstmt.setString(3, prenom);
-            pstmt.setString(4, email);
-            pstmt.setString(5, telephone);
-            pstmt.setString(6, adresse);
-            pstmt.setString(7, motDePasseHash);
+            // Les index des paramètres sont décalés car l'ID n'est plus inclus dans le SQL.
+            pstmt.setString(1, nom);
+            pstmt.setString(2, prenom);
+            pstmt.setString(3, email);
+            pstmt.setString(4, telephone);
+            pstmt.setString(5, adresse);
+            pstmt.setString(6, motDePasseHash);
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
                 System.out.println("Client " + nom + " " + prenom + " ajouté avec succès par l'agent " + this.login + ".");
-                Journal.logAction("Ajouter Client", LocalDateTime.now(), this.login, "Client " + id + " ajouté.");
+                Journal.logAction("Ajout Client", LocalDateTime.now(), login, "Client ajouté : " + nom + " " + prenom);
                 return true;
             }
         } catch (SQLException e) {
             // Gérer le cas où l'email est déjà existant (clé unique)
-            if (e.getErrorCode() == 1062) { // Erreur de duplicata pour MySQL
+            if (e.getErrorCode() == 1062) { // Code d'erreur pour les duplicata sous MySQL
                 System.err.println("Erreur: L'email '" + email + "' est déjà utilisé.");
             } else {
                 System.err.println("Erreur lors de l'ajout du client: " + e.getMessage());
@@ -144,35 +144,35 @@ public class Agent implements ServiceAuthentification {
         return false;
     }
 
-   // Supprime un client du système, ainsi que ses comptes et transactions associées.
-
-    public boolean supprimerClient(String clientId) {
+    public boolean supprimerClient(int clientId) {
         Connection conn = null;
         try {
             conn = ConnectionBD.getConnection();
-            conn.setAutoCommit(false); // Démarre une transaction
+            conn.setAutoCommit(false);
 
             // 1. Supprimer les messages envoyés par/reçus par le client
             String deleteMessagesSql = "DELETE FROM Message WHERE client_id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(deleteMessagesSql)) {
-                pstmt.setString(1, clientId);
+                pstmt.setInt(1, clientId); // Utilisation de setInt pour l'ID client
                 pstmt.executeUpdate();
             }
 
-            // 2. Récupérer les numéros de compte du client
+            // 2. Récupérer les numéros de compte du client pour supprimer leurs transactions associées
             List<String> accountNumbers = new ArrayList<>();
             String getAccountsSql = "SELECT numero FROM compte WHERE client_id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(getAccountsSql)) {
-                pstmt.setString(1, clientId);
+                pstmt.setInt(1, clientId); // Utilisation de setInt pour l'ID client
                 ResultSet rs = pstmt.executeQuery();
                 while (rs.next()) {
                     accountNumbers.add(rs.getString("numero"));
                 }
             }
 
-            // 3. Supprimer les transactions liées à ces comptes
             if (!accountNumbers.isEmpty()) {
-                String deleteTransactionsSql = "DELETE FROM transaction WHERE compte_source_numero IN (" + String.join(",", java.util.Collections.nCopies(accountNumbers.size(), "?")) + ") OR compte_destination_numero IN (" + String.join(",", java.util.Collections.nCopies(accountNumbers.size(), "?")) + ")";
+                // Création dynamique de la clause IN pour la requête SQL
+                String placeholders = String.join(",", java.util.Collections.nCopies(accountNumbers.size(), "?"));
+                String deleteTransactionsSql = "DELETE FROM transaction WHERE compte_source_numero IN (" +
+                        placeholders + ") OR compte_destination_numero IN (" + placeholders + ")";
                 try (PreparedStatement pstmt = conn.prepareStatement(deleteTransactionsSql)) {
                     int i = 1;
                     for (String accNum : accountNumbers) {
@@ -188,23 +188,24 @@ public class Agent implements ServiceAuthentification {
             // 4. Supprimer les comptes du client
             String deleteAccountsSql = "DELETE FROM compte WHERE client_id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(deleteAccountsSql)) {
-                pstmt.setString(1, clientId);
+                pstmt.setInt(1, clientId); // Utilisation de setInt pour l'ID client
                 pstmt.executeUpdate();
             }
 
-            // 5. Supprimer le client
+            // 5. Supprimer le client lui-même
             String deleteClientSql = "DELETE FROM clients WHERE id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(deleteClientSql)) {
-                pstmt.setString(1, clientId);
+                pstmt.setInt(1, clientId); // Utilisation de setInt pour l'ID client
                 int affectedRows = pstmt.executeUpdate();
 
                 if (affectedRows > 0) {
-                    conn.commit(); // Valide la transaction
-                    System.out.println("Client " + clientId + " et toutes ses données associées supprimés avec succès par l'agent " + this.login + ".");
-                    Journal.logAction("Supprimer Client", LocalDateTime.now(), this.login, "Client " + clientId + " supprimé.");
+                    conn.commit(); // Valide toutes les opérations de la transaction
+                    Journal.logAction("Suppression Client", LocalDateTime.now(), login, "Client supprimé : " + clientId);
+                    System.out.println("Client " + clientId + " et ses données associées supprimés avec succès.");
                     return true;
                 } else {
-                    conn.rollback(); // Annule la transaction
+                    conn.rollback(); // Annule la transaction si aucun client n'a été trouvé/supprimé
+                    System.out.println("Aucun client trouvé avec l'ID : " + clientId + ". La suppression a été annulée.");
                     return false;
                 }
             }
@@ -214,28 +215,35 @@ public class Agent implements ServiceAuthentification {
                 try {
                     conn.rollback(); // Annule la transaction en cas d'erreur
                 } catch (SQLException ex) {
-                    System.err.println("Erreur lors du rollback: " + ex.getMessage());
+                    System.err.println("Erreur lors du rollback après une erreur de suppression: " + ex.getMessage());
                 }
             }
         } finally {
+            // Rétablit l'auto-commit et ferme la connexion dans tous les cas
             if (conn != null) {
                 try {
-                    conn.setAutoCommit(true); // Rétablit l'auto-commit
+                    conn.setAutoCommit(true);
                     conn.close();
                 } catch (SQLException ex) {
-                    System.err.println("Erreur lors de la fermeture de la connexion: " + ex.getMessage());
+                    System.err.println("Erreur lors de la fermeture de la connexion dans le bloc finally: " + ex.getMessage());
                 }
             }
         }
         return false;
     }
 
-
+    /**
+     * Marque un message comme lu dans la base de données.
+     * L'ID du message est de type INT dans la BDD.
+     * @param messageId L'ID numérique du message à marquer comme lu, sous forme de chaîne.
+     * @return true si le message a été marqué comme lu, false sinon.
+     */
     public boolean marquerMessageLu(String messageId) {
         String sql = "UPDATE Message SET lu = TRUE WHERE id = ?";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, messageId);
+            // Conversion de l'ID du message de String à int, car la colonne 'id' de la table Message est de type INT.
+            pstmt.setInt(1, Integer.parseInt(messageId));
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
                 System.out.println("Message " + messageId + " marqué comme lu par l'agent " + this.login + ".");
@@ -244,9 +252,102 @@ public class Agent implements ServiceAuthentification {
             }
         } catch (SQLException e) {
             System.err.println("Erreur lors du marquage du message " + messageId + " comme lu: " + e.getMessage());
+        } catch (NumberFormatException e) {
+            System.err.println("Erreur: L'ID du message '" + messageId + "' n'est pas un nombre valide. " + e.getMessage());
         }
         return false;
     }
 
+    public ResultSet consulterClients() {
+        String sql = "SELECT * FROM clients";
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            conn = ConnectionBD.getConnection();
+            stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);
+            System.out.println("Consultation des clients par l'agent " + this.login + ".");
+            Journal.logAction("Consulter Clients", LocalDateTime.now(), this.login, "Liste des clients consultée.");
+            return rs;
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la consultation des clients: " + e.getMessage());
+            // En cas d'erreur, tenter de fermer les ressources ouvertes
+            try {
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException ex) {
+                System.err.println("Erreur lors de la fermeture des ressources après une erreur de consultation des clients: " + ex.getMessage());
+            }
+        }
+        return null;
+    }
 
+    public ResultSet consulterComptes() {
+        String sql = "SELECT * FROM compte";
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            conn = ConnectionBD.getConnection();
+            stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);
+            System.out.println("Consultation des comptes par l'agent " + this.login + ".");
+            Journal.logAction("Consulter Comptes", LocalDateTime.now(), this.login, "Liste des comptes consultée.");
+            return rs;
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la consultation des comptes: " + e.getMessage());
+            try {
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException ex) {
+                System.err.println("Erreur lors de la fermeture des ressources après une erreur de consultation des comptes: " + ex.getMessage());
+            }
+        }
+        return null;
+    }
+
+    public ResultSet consulterTransactions() {
+        String sql = "SELECT * FROM transaction";
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            conn = ConnectionBD.getConnection();
+            stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);
+            System.out.println("Consultation des transactions par l'agent " + this.login + ".");
+            Journal.logAction("Consulter Transactions", LocalDateTime.now(), this.login, "Liste des transactions consultée.");
+            return rs;
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la consultation des transactions: " + e.getMessage());
+            try {
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException ex) {
+                System.err.println("Erreur lors de la fermeture des ressources après une erreur de consultation des transactions: " + ex.getMessage());
+            }
+        }
+        return null;
+    }
+
+    public ResultSet consulterMessage() {
+        String sql = "SELECT * FROM Message";
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            conn = ConnectionBD.getConnection();
+            stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);
+            System.out.println("Consultation des messages par l'agent " + this.login + ".");
+            Journal.logAction("Consulter Messages", LocalDateTime.now(), this.login, "Liste des messages consultée.");
+            return rs;
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la consultation des messages: " + e.getMessage());
+            try {
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException ex) {
+                System.err.println("Erreur lors de la fermeture des ressources après une erreur de consultation des messages: " + ex.getMessage());
+            }
+        }
+        return null;
+    }
 }
