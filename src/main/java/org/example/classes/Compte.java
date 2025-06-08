@@ -42,9 +42,9 @@ public abstract class Compte {
     public void setType(String type) {
         this.type=type;
     }
-    
-    public abstract boolean retirer(double montant);
 
+    public abstract boolean retirer(double montant);
+    public abstract boolean deposer(double montant);
 
     @Override
     public String toString() {
