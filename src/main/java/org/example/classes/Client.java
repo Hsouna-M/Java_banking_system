@@ -131,6 +131,10 @@ public class Client implements ServiceAuthentification {
         return false;
     }
 
+    public int getId(){
+        return this.id;
+    }
+
     /**
      * Creates a new bank account for the client.
      *
@@ -138,8 +142,10 @@ public class Client implements ServiceAuthentification {
      * @param initialSolde The initial balance of the account.
      * @return true if the account was created successfully, false otherwise.
      */
+
+
     public boolean createAccount(String typeCompte, double initialSolde) {
-        if (this.id == 0) {
+        if (this.getId() == 0) {
             System.out.println("Cannot create account. Client is not saved or identified in the database.");
             return false;
         }
@@ -154,7 +160,7 @@ public class Client implements ServiceAuthentification {
             pstmt.setString(1, numero);
             pstmt.setDouble(2, initialSolde);
             pstmt.setDate(3, new java.sql.Date(System.currentTimeMillis()));
-            pstmt.setInt(4, this.id);
+            pstmt.setInt(4, this.getId());
             pstmt.setString(5, typeCompte);
             pstmt.setBoolean(6, false); // Not blocked by default
 
@@ -243,5 +249,34 @@ public class Client implements ServiceAuthentification {
             return false;
         }
     }
+// Add this new static method to the Client.java class
 
+    /**
+     * Retrieves a Client object from the database by its ID.
+     *
+     * @param clientId The ID of the client.
+     * @return A Client object, or null if not found.
+     */
+    public static Client getClientById(int clientId) {
+        String sql = "SELECT id, nom, prenom, email, telephone, adresse FROM clients WHERE id = ?";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, clientId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                Client client = new Client();
+                client.id = rs.getInt("id"); // Assuming 'id' can be accessed
+                client.setNom(rs.getString("nom"));
+                client.setPrenom(rs.getString("prenom"));
+                client.setEmail(rs.getString("email"));
+                client.setNumTel(rs.getString("telephone"));
+                client.setAdresse(rs.getString("adresse"));
+                client.fetchCompteNumeros(); // Fetch associated accounts
+                return client;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching client by ID: " + e.getMessage());
+        }
+        return null;
+    }
 }
