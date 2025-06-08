@@ -37,6 +37,6 @@ build/
 ### Mac OS ###
 .DS_Store
 
-src/main/java/org/example/database/*
+src/main/java/org/example/database/ConnectionDB.java
 
-.idea/*
+.idea/

@@ -1,14 +1,13 @@
 package org.example.classes;
 
-import java.sql.SQLException;
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.Date;
 
 import org.example.database.ConnectionBD;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Types;
+import java.util.List;
 
 
 public class Transaction {
@@ -109,4 +108,36 @@ public class Transaction {
                 ", dateTransaction=" + dateTransaction +
                 '}';
     }
+
+
+    public static List<Transaction> getTransactionsForAccount(String accountNumber) {
+        List<Transaction> transactions = new ArrayList<>();
+        String sql = "SELECT id, montant, date_transaction, compte_source_numero, compte_destination_numero FROM transaction WHERE compte_source_numero = ? OR compte_destination_numero = ? ORDER BY date_transaction DESC";
+
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, accountNumber);
+            pstmt.setString(2, accountNumber);
+
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                double amount = rs.getDouble("montant");
+                Date date = rs.getTimestamp("date_transaction");
+                String source = rs.getString("compte_source_numero");
+                String destination = rs.getString("compte_destination_numero");
+                Transaction transaction=new Transaction( source, destination, amount );
+                transaction.setDateTransaction(date);
+                transactions.add(transaction);
+
+            }
+
+        } catch (SQLException e) {
+            System.err.println("Error fetching transaction history: " + e.getMessage());
+        }
+        return transactions;
+    }
+
 }

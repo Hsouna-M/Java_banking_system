@@ -87,7 +87,7 @@ public class CompteCourant extends Compte {
                 int rowsUpdated = updateStmt.executeUpdate();
                 if (rowsUpdated > 0) {
                     setSolde(nouveauSolde); // update object
-                    System.out.println("Dépôt effectué avec succès. Nouveau solde : " + nouveauSolde);
+                    System.out.println("Dépôt effectué avec succès. " );
                     return true;
                 } else {
                     System.out.println("Erreur lors de la mise à jour du solde.");
