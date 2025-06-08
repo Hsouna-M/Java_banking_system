@@ -123,31 +123,52 @@ public class Client implements ServiceAuthentification{
     }
 
     // this is a comment to test the hsouna branch
-
-    public boolean ajouterCompte(String numero, double solde, Date date_overture,int client_id,String type_compte,boolean estBlockee,double tauxIneret) {
+    /**
+     * Adds a new account for the client by specifying its details.
+     *
+     * @param numero       The account number.
+     * @param typeCompte   The type of account (e.g., "Courant", "Epargne").
+     * @param soldeInitial The initial balance of the account.
+     * @return true if the account was added successfully, false otherwise.
+     */
+    public boolean ajouterCompte(String numero, String typeCompte, double soldeInitial) {
         // The client must be authenticated and have an ID to add an account
         String sql = "INSERT INTO compte (numero, solde, date_ouverture, client_id, type_compte, estBlockee, tauxInteret) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, compte.getNumero());
-            pstmt.setDouble(2, compte.getSolde());
-            pstmt.setDate(3, new java.sql.Date(compte.getDateOuverture().getTime()));
-            pstmt.setInt(4, this.id);
-            pstmt.setString(5, compte.getType());
-            pstmt.setBoolean(6, compte.isEstBlockee());
+            pstmt.setString(1, numero);
+            pstmt.setDouble(2, soldeInitial);
+            pstmt.setDate(3, new java.sql.Date(new java.util.Date().getTime())); // Set current date
+            pstmt.setInt(4, this.getId());
+            pstmt.setString(5, typeCompte);
+            pstmt.setBoolean(6, false); // New accounts are not blocked by default
 
-            // Handle interest rate for savings accounts
-            if (compte instanceof CompteEpargne) {
-                pstmt.setDouble(7, ((CompteEpargne) compte).getTauxInteret());
-            } else {
+            //Compte newAccount; // Will hold the instance of the new account
+
+            // Set interest rate and create the correct account type instance
+            if ("Epargne".equalsIgnoreCase(typeCompte)) {
+                // Assumes CompteEpargne has a static getter for the interest rate
+                pstmt.setDouble(7, new CompteEpargne(numero,"Ep").getTauxInteret());
+                newAccount = new CompteEpargne(numero);
+            } else if ("Courant".equalsIgnoreCase(typeCompte)) {
                 pstmt.setNull(7, Types.DOUBLE);
+                // CompteCourant constructor requires an overdraft value, defaulting to 0.0
+                newAccount = new CompteCourant(numero, typeCompte, 0.0);
+            } else {
+                // For a generic account type that might not be 'Courant' or 'Epargne'
+                pstmt.setNull(7, Types.DOUBLE);
+                newAccount = new Compte(numero, typeCompte);
             }
 
+            // Set the balance for the new account object
+            newAccount.setSolde(soldeInitial);
+
             int affectedRows = pstmt.executeUpdate();
+
             if (affectedRows > 0) {
-                this.listComptes.add(compte); // Add to the local list
-                System.out.println("Account " + compte.getNumero() + " added successfully for client " + this.nom + ".");
+                this.listComptes.add(newAccount); // Add the new account to the in-memory list
+                System.out.println("Account " + numero + " of type " + typeCompte + " added successfully for client " + this.nom + ".");
                 return true;
             }
         } catch (SQLException e) {
@@ -155,5 +176,4 @@ public class Client implements ServiceAuthentification{
         }
         return false;
     }
-}
 }
