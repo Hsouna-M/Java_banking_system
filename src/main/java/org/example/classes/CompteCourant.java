@@ -10,9 +10,9 @@ import java.sql.Types;
 public class CompteCourant extends Compte {
     private double decouvert;
 
-    public CompteCourant(String numero, String type, double decouvert) {
+    public CompteCourant(String numero, double Solde) {
         super(numero, "courant");
-        this.decouvert = decouvert;
+        this.decouvert = Solde*0.5;
     }
 
     public double getDecouvert() {
@@ -67,7 +67,7 @@ public class CompteCourant extends Compte {
     }
 
 
-    @Override
+
     public void afficherInfos() {
         System.out.println(this.toString() + ", découvert autorisé = " + decouvert);
     }
