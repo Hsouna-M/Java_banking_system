@@ -1,37 +1,39 @@
 package org.example.classes;
 
-import java.sql.SQLException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import org.example.database.ConnectionBD;
-import java.util.ArrayList;
-import java.util.Date;
 
-public class Client implements ServiceAuthentification{
+import java.sql.*;
+import java.util.ArrayList;
+
+public class Client implements ServiceAuthentification {
     private int id;
     private String nom;
     private String prenom;
-    private String agence;
     private String email;
     private String numTel;
     private String adresse;
-    private ArrayList<Compte> listComptes;
+    private ArrayList<String> listCompteNumeros;
 
-    public Client(String nom, String prenom, String agence, String email, String numTel, String adresse) {
+    /**
+     * Constructor for creating a new client instance.
+     */
+    public Client(String nom, String prenom, String email, String numTel, String adresse) {
         this.nom = nom;
         this.prenom = prenom;
-        this.agence = agence;
         this.email = email;
         this.numTel = numTel;
         this.adresse = adresse;
-        this.listComptes = new ArrayList<Compte>();
+        this.listCompteNumeros = new ArrayList<>();
     }
 
-    public int getId() {
-        return this.id;
+    /**
+     * Default constructor.
+     */
+    public Client() {
+        this.listCompteNumeros = new ArrayList<>();
     }
 
+    // Getters and Setters
     public String getNom() {
         return nom;
     }
@@ -46,14 +48,6 @@ public class Client implements ServiceAuthentification{
 
     public void setPrenom(String prenom) {
         this.prenom = prenom;
-    }
-
-    public String getAgence() {
-        return agence;
-    }
-
-    public void setAgence(String agence) {
-        this.agence = agence;
     }
 
     public String getEmail() {
@@ -80,100 +74,131 @@ public class Client implements ServiceAuthentification{
         this.adresse = adresse;
     }
 
-    public ArrayList<Compte> getListComptes() {
-        return listComptes;
+    public ArrayList<String> getListCompteNumeros() {
+        return listCompteNumeros;
     }
 
-    public void fectchComtes() {
-        this.listComptes = listComptes;
-    }
-
-    @Override
-    public boolean sauthentifier (String email, String mdp) {
-        Connection conn = null;
-        PreparedStatement preparedStatement = null;
-        ResultSet resultSet = null;
-        try {
-            conn = ConnectionBD.getConnection();
-            String sql = "SELECT mot_de_passe_hash FROM clients WHERE email = ?";
-            preparedStatement = conn.prepareStatement(sql);
-            preparedStatement.setString(1, email);
-            resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                String storedPasswordHash = resultSet.getString("mot_de_passe_hash");
-
-                // we might need to encrypt to hash the password live and comprare it to the sotred hash in the database
-
-                return mdp.equals(storedPasswordHash);
+    /**
+     * Fetches the account numbers for this client from the database.
+     */
+    public void fetchCompteNumeros() {
+        if (this.id == 0) {
+            System.out.println("Client ID is not set. Cannot fetch accounts.");
+            return;
+        }
+        this.listCompteNumeros.clear();
+        String sql = "SELECT numero FROM compte WHERE client_id = ?";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, this.id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    this.listCompteNumeros.add(rs.getString("numero"));
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
-        } finally {
+        }
+    }
 
-            try {
-                if (resultSet != null) resultSet.close();
-                if (preparedStatement != null) preparedStatement.close();
-                if (conn != null) conn.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
+    @Override
+    public boolean sauthentifier(String email, String mdp) {
+        String sql = "SELECT id, nom, prenom, telephone, adresse, mot_de_passe_hash FROM clients WHERE email = ?";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement preparedStatement = conn.prepareStatement(sql)) {
+            preparedStatement.setString(1, email);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    String storedPasswordHash = resultSet.getString("mot_de_passe_hash");
+
+                    // In a real application, you would use a secure password hashing library like BCrypt.
+                    if (mdp.equals(storedPasswordHash)) {
+                        // Populate client object with data from DB
+                        this.id = resultSet.getInt("id");
+                        this.nom = resultSet.getString("nom");
+                        this.prenom = resultSet.getString("prenom");
+                        this.email = email;
+                        this.numTel = resultSet.getString("telephone");
+                        this.adresse = resultSet.getString("adresse");
+                        fetchCompteNumeros(); // Fetch associated account numbers
+                        return true;
+                    }
+                }
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         return false;
     }
 
-    // this is a comment to test the hsouna branch
     /**
-     * Adds a new account for the client by specifying its details.
+     * Creates a new bank account for the client.
      *
-     * @param numero       The account number.
-     * @param typeCompte   The type of account (e.g., "Courant", "Epargne").
-     * @param soldeInitial The initial balance of the account.
-     * @return true if the account was added successfully, false otherwise.
+     * @param typeCompte   The type of the account (e.g., "Courant", "Epargne").
+     * @param initialSolde The initial balance of the account.
+     * @return true if the account was created successfully, false otherwise.
      */
-    public boolean ajouterCompte(String numero, String typeCompte, double soldeInitial) {
-        // The client must be authenticated and have an ID to add an account
+    public boolean createAccount(String typeCompte, double initialSolde) {
+        if (this.id == 0) {
+            System.out.println("Cannot create account. Client is not saved or identified in the database.");
+            return false;
+        }
+
+        // Generate a unique account number
+        String numero = "TN" + System.currentTimeMillis();
+
         String sql = "INSERT INTO compte (numero, solde, date_ouverture, client_id, type_compte, estBlockee, tauxInteret) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, numero);
-            pstmt.setDouble(2, soldeInitial);
-            pstmt.setDate(3, new java.sql.Date(new java.util.Date().getTime())); // Set current date
-            pstmt.setInt(4, this.getId());
+            pstmt.setDouble(2, initialSolde);
+            pstmt.setDate(3, new java.sql.Date(System.currentTimeMillis()));
+            pstmt.setInt(4, this.id);
             pstmt.setString(5, typeCompte);
-            pstmt.setBoolean(6, false); // New accounts are not blocked by default
+            pstmt.setBoolean(6, false); // Not blocked by default
 
-            //Compte newAccount; // Will hold the instance of the new account
-
-            // Set interest rate and create the correct account type instance
             if ("Epargne".equalsIgnoreCase(typeCompte)) {
-                // Assumes CompteEpargne has a static getter for the interest rate
-                pstmt.setDouble(7, new CompteEpargne(numero,"Ep").getTauxInteret());
-                newAccount = new CompteEpargne(numero);
-            } else if ("Courant".equalsIgnoreCase(typeCompte)) {
-                pstmt.setNull(7, Types.DOUBLE);
-                // CompteCourant constructor requires an overdraft value, defaulting to 0.0
-                newAccount = new CompteCourant(numero, typeCompte, 0.0);
+                // Using the constant from CompteEpargne class for the interest rate
+                pstmt.setDouble(7, CompteEpargne.TAUX_INTERET);
             } else {
-                // For a generic account type that might not be 'Courant' or 'Epargne'
                 pstmt.setNull(7, Types.DOUBLE);
-                newAccount = new Compte(numero, typeCompte);
             }
-
-            // Set the balance for the new account object
-            newAccount.setSolde(soldeInitial);
 
             int affectedRows = pstmt.executeUpdate();
 
             if (affectedRows > 0) {
-                this.listComptes.add(newAccount); // Add the new account to the in-memory list
-                System.out.println("Account " + numero + " of type " + typeCompte + " added successfully for client " + this.nom + ".");
+                // Add the new account number to the list in the object
+                this.listCompteNumeros.add(numero);
+                System.out.println("Account created successfully with number: " + numero);
                 return true;
             }
         } catch (SQLException e) {
-            System.err.println("Error adding account: " + e.getMessage());
+            System.err.println("Error creating account: " + e.getMessage());
+            e.printStackTrace();
         }
         return false;
     }
+
+    /**
+     * Creates and sends a new message from the client.
+     *
+     * @param sujet   The subject of the message.
+     * @param contenu The content of the message.
+     * @return true if the message was sent successfully, false otherwise.
+     */
+    public boolean createMessage(String sujet, String contenu) {
+        if (this.id == 0) {
+            System.out.println("Cannot send message. Client is not identified in the database.");
+            return false;
+        }
+        // Calls the static method from the Message class to send the message
+        return Message.envoyerMessage(sujet, contenu, this.id);
+    }
+
+
+
+
+
+
 }
