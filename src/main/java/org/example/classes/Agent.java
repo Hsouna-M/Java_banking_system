@@ -252,17 +252,6 @@ public class Agent implements ServiceAuthentification {
         }
         return false;
     }
-    /*
-      Consulte la liste de tous les clients.
-      ATTENTION IMPORTANTE : Cette méthode retourne un ResultSet. La Connection et le Statement
-      associés à ce ResultSet ne sont PAS fermés dans cette méthode.
-      la méthode appelante doit gèrer la fermeture de ces ressources
-        rs.close();
-        stmt.close();
-        conn.close();
-      @return Un ResultSet contenant les informations des clients
-     */
-
 
     public ResultSet consulterClients() {
         String sql = "SELECT * FROM clients";
