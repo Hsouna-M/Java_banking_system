@@ -1,6 +1,12 @@
 package org.example;
 
 import org.example.classes.*;
+import org.example.database.ConnectionBD;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Scanner;
 import java.util.List;
 
@@ -278,6 +284,7 @@ public class Main {
             System.out.println("3. Unblock a client account");
             System.out.println("4. Delete a client");
             System.out.println("5. View Data");
+            System.out.println("6. View Journal Action");
             System.out.println("0. Logout");
             System.out.print("Enter your choice: ");
 
@@ -299,6 +306,9 @@ public class Main {
                 case 5:
                     showConsultationMenu();
                     break;
+                case 6:
+                    showJournalAction();
+                    break;
                 case 0:
                     authenticatedAgent = null;
                     System.out.println("You have been logged out.");
@@ -308,6 +318,20 @@ public class Main {
             }
         }
     }
+
+    private static void showJournalAction() {
+       String sql = "SELECT * FROM JournalAction ";
+       try (Connection conn = ConnectionBD.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                System.out.println("Type Action:{"+ rs.getString("action_type")+"} Date Action{"+ rs.getDate("action_date")+"} Actor:{ "+ rs.getString("actor")+"} Details:"+ rs.getString("details")+"}\n");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error lors de laffichage du Journal D'action" + e.getMessage());
+        }
+    }
+
 
     private static void showConsultationMenu() {
         while(true) {
