@@ -11,7 +11,6 @@ public class ConnectionBD {
 
             conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/banking_system_db", "root", "rootroot");
 
-            System.out.println("connexion reussite");
 
         } catch (Exception e) {
             e.printStackTrace();

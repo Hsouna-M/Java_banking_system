@@ -235,7 +235,7 @@ public class Agent implements ServiceAuthentification {
     }
 
     public boolean marquerMessageLu(String messageId) {
-        String sql = "UPDATE Message SET lu = TRUE WHERE id = ?";
+        String sql = "UPDATE message SET lu = TRUE WHERE id = ?";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, Integer.parseInt(messageId));

@@ -431,7 +431,10 @@ public class Main {
         if (choice == 1) {
             List<Message> messages = Message.getAllUnreadMessages();
             if (messages.isEmpty()) System.out.println("No unread messages.");
-            for (Message m : messages) System.out.println(m.toString());
+            for (Message m : messages){
+               System.out.println(m.toString());
+              authenticatedAgent.marquerMessageLu(String.valueOf(m.getId())) ;
+            }
         } else if (choice == 2) {
             System.out.print("Enter message ID: ");
             int id = getIntInput();
