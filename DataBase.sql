@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS clients (
 
 -- Table compte
 CREATE TABLE IF NOT EXISTS compte (
-                                      numero VARCHAR(50) PRIMARY KEY,
+    numero VARCHAR(50) PRIMARY KEY,
     solde DOUBLE NOT NULL DEFAULT 0.0,
     date_ouverture DATE NOT NULL,
     client_id INT NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS compte (
 
 -- Table agent
 CREATE TABLE IF NOT EXISTS Agent (
-   id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     login VARCHAR(50) NOT NULL UNIQUE,
     mot_de_passe_hash VARCHAR(255) NOT NULL
     );
