@@ -1,15 +1,11 @@
 package org.example;
 
 import org.example.classes.Agent;
-import org.example.classes.Client;
-import org.example.classes.Compte; // Importez Compte pour utiliser getCompteByNumero
-import org.example.classes.Message;
 import org.example.database.ConnectionBD;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +13,6 @@ import java.util.Scanner;
 
 public class Main {
 
-    // Méthode utilitaire pour vérifier l'existence d'un client
     public static boolean doesClientExist(int clientId) {
         String sql = "SELECT COUNT(*) FROM clients WHERE id = ?";
         try (Connection conn = ConnectionBD.getConnection();
