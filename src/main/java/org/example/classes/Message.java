@@ -8,20 +8,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Message {
-    private int id; // L'ID du message, auto-incrémenté par la base de données
+    private int id;
     private String sujet;
     private String contenu;
-    private LocalDateTime dateMessage; // La date et l'heure de l'envoi du message
-    private int clientId; // L'ID du client qui a envoyé le message (référence à clients.id de type INT)
-    private boolean lu; // Indique si le message a été lu ou non
+    private LocalDateTime dateMessage;
+    private int clientId;
+    private boolean lu;
+
+    //Constructeur pour créer une nouvelle instance de message avant de la sauvegarder en BD.
 
     public Message(String sujet, String contenu, int clientId) {
         this.sujet = sujet;
         this.contenu = contenu;
-        this.dateMessage = LocalDateTime.now(); // Définit la date et l'heure actuelles
+        this.dateMessage = LocalDateTime.now();
         this.clientId = clientId;
-        this.lu = false; // Un nouveau message est par défaut non lu
+        this.lu = false;
     }
+
+    //Constructeur pour créer une instance de message à partir de données récupérées de la BD
 
     public Message(int id, String sujet, String contenu, LocalDateTime dateMessage, int clientId, boolean lu) {
         this.id = id;
@@ -32,7 +36,7 @@ public class Message {
         this.lu = lu;
     }
 
-    // --- Getters pour accéder aux propriétés du message ---
+
     public int getId() {
         return id;
     }
@@ -76,7 +80,7 @@ public class Message {
             LocalDateTime now = LocalDateTime.now();
             pstmt.setString(1, sujet);
             pstmt.setString(2, contenu);
-            pstmt.setTimestamp(3, Timestamp.valueOf(now));
+            pstmt.setTimestamp(3, Timestamp.valueOf(now));// Conversion de LocalDateTime en Timestamp
             pstmt.setInt(4, clientId);
             pstmt.setBoolean(5, false);
 
@@ -92,6 +96,8 @@ public class Message {
         }
         return false;
     }
+
+     //  @return L'objet Message correspondant à l'ID, ou null
 
     public static Message getMessageById(int messageId) {
         String sql = "SELECT id, sujet, contenu, date_message, client_id, lu FROM Message WHERE id = ?";
@@ -114,6 +120,9 @@ public class Message {
         }
         return null;
     }
+    /* Récupère tous les messages associés à un client spécifique.
+      Les messages sont triés par date d'envoi décroissante
+      @return Une liste d'objets Message envoyés par ce client.     */
 
     public static List<Message> getMessagesByClientId(int clientId) {
         List<Message> messages = new ArrayList<>();

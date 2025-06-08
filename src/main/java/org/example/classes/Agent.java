@@ -7,15 +7,20 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+
 public class Agent implements ServiceAuthentification {
     private String id;
     private String login;
     private String motDePasseHash;
 
+    //  Constructeur pour un nouvel agent
+
     public Agent(String login, String motDePasseHash) {
         this.login = login;
         this.motDePasseHash = motDePasseHash;
     }
+
+    //Constructeur pour récupérer un agent existant de la base de données
 
     public Agent(String id, String login, String motDePasseHash) {
         this.id = id;
@@ -34,9 +39,6 @@ public class Agent implements ServiceAuthentification {
     public String getMotDePasseHash() {
         return motDePasseHash;
     }
-    public void setId(String id) {
-        this.id = id;
-    }
 
     public void setLogin(String login) {
         this.login = login;
@@ -45,6 +47,8 @@ public class Agent implements ServiceAuthentification {
     public void setMotDePasseHash(String motDePasseHash) {
         this.motDePasseHash = motDePasseHash;
     }
+
+    // @return L'objet Agent si trouvé, sinon null.
 
     public static Agent getAgentByLogin(String login) {
         String sql = "SELECT id, login, mot_de_passe_hash FROM Agent WHERE login = ?";
@@ -72,7 +76,6 @@ public class Agent implements ServiceAuthentification {
             this.motDePasseHash = agent.getMotDePasseHash();
 
             System.out.println("Authentification de l'agent " + login + " réussie.");
-            // Journalisation de l'action d'authentification
             Journal.logAction("Authentification", LocalDateTime.now(), login, "Agent authentifié");
             return true;
         }
@@ -115,12 +118,10 @@ public class Agent implements ServiceAuthentification {
     }
 
     public boolean ajouterClient(String nom, String prenom, String email, String telephone, String adresse, String motDePasseHash) {
-        // L'ID du client est maintenant généré automatiquement par la base de données (AUTO_INCREMENT).
-        // Nous n'incluons donc pas la colonne 'id' dans l'instruction INSERT.
+
         String sql = "INSERT INTO clients (nom, prenom, email, telephone, adresse, mot_de_passe_hash) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            // Les index des paramètres sont décalés car l'ID n'est plus inclus dans le SQL.
             pstmt.setString(1, nom);
             pstmt.setString(2, prenom);
             pstmt.setString(3, email);
@@ -144,32 +145,33 @@ public class Agent implements ServiceAuthentification {
         return false;
     }
 
+
     public boolean supprimerClient(int clientId) {
         Connection conn = null;
         try {
-            conn = ConnectionBD.getConnection();
+            conn = ConnectionBD.getConnection();  //Toutes les opérations SQL suivantes exécutées sur cette connexion feront partie d'une seule et même transaction.
             conn.setAutoCommit(false);
 
             // 1. Supprimer les messages envoyés par/reçus par le client
             String deleteMessagesSql = "DELETE FROM Message WHERE client_id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(deleteMessagesSql)) {
-                pstmt.setInt(1, clientId); // Utilisation de setInt pour l'ID client
+                pstmt.setInt(1, clientId);
                 pstmt.executeUpdate();
             }
 
             // 2. Récupérer les numéros de compte du client pour supprimer leurs transactions associées
-            List<String> accountNumbers = new ArrayList<>();
+            List<String> accountNumbers = new ArrayList<>(); // Interface Polymorphique
             String getAccountsSql = "SELECT numero FROM compte WHERE client_id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(getAccountsSql)) {
-                pstmt.setInt(1, clientId); // Utilisation de setInt pour l'ID client
+                pstmt.setInt(1, clientId);
                 ResultSet rs = pstmt.executeQuery();
                 while (rs.next()) {
                     accountNumbers.add(rs.getString("numero"));
                 }
             }
+            // 3. Supprimer les transactions où le compte source ou destination est un des comptes du client.
 
             if (!accountNumbers.isEmpty()) {
-                // Création dynamique de la clause IN pour la requête SQL
                 String placeholders = String.join(",", java.util.Collections.nCopies(accountNumbers.size(), "?"));
                 String deleteTransactionsSql = "DELETE FROM transaction WHERE compte_source_numero IN (" +
                         placeholders + ") OR compte_destination_numero IN (" + placeholders + ")";
@@ -188,14 +190,14 @@ public class Agent implements ServiceAuthentification {
             // 4. Supprimer les comptes du client
             String deleteAccountsSql = "DELETE FROM compte WHERE client_id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(deleteAccountsSql)) {
-                pstmt.setInt(1, clientId); // Utilisation de setInt pour l'ID client
+                pstmt.setInt(1, clientId);
                 pstmt.executeUpdate();
             }
 
             // 5. Supprimer le client lui-même
             String deleteClientSql = "DELETE FROM clients WHERE id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(deleteClientSql)) {
-                pstmt.setInt(1, clientId); // Utilisation de setInt pour l'ID client
+                pstmt.setInt(1, clientId);
                 int affectedRows = pstmt.executeUpdate();
 
                 if (affectedRows > 0) {
@@ -232,17 +234,10 @@ public class Agent implements ServiceAuthentification {
         return false;
     }
 
-    /**
-     * Marque un message comme lu dans la base de données.
-     * L'ID du message est de type INT dans la BDD.
-     * @param messageId L'ID numérique du message à marquer comme lu, sous forme de chaîne.
-     * @return true si le message a été marqué comme lu, false sinon.
-     */
     public boolean marquerMessageLu(String messageId) {
         String sql = "UPDATE Message SET lu = TRUE WHERE id = ?";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            // Conversion de l'ID du message de String à int, car la colonne 'id' de la table Message est de type INT.
             pstmt.setInt(1, Integer.parseInt(messageId));
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
@@ -257,6 +252,17 @@ public class Agent implements ServiceAuthentification {
         }
         return false;
     }
+    /*
+      Consulte la liste de tous les clients.
+      ATTENTION IMPORTANTE : Cette méthode retourne un ResultSet. La Connection et le Statement
+      associés à ce ResultSet ne sont PAS fermés dans cette méthode.
+      la méthode appelante doit gèrer la fermeture de ces ressources
+        rs.close();
+        stmt.close();
+        conn.close();
+      @return Un ResultSet contenant les informations des clients
+     */
+
 
     public ResultSet consulterClients() {
         String sql = "SELECT * FROM clients";
@@ -271,7 +277,6 @@ public class Agent implements ServiceAuthentification {
             return rs;
         } catch (SQLException e) {
             System.err.println("Erreur lors de la consultation des clients: " + e.getMessage());
-            // En cas d'erreur, tenter de fermer les ressources ouvertes
             try {
                 if (stmt != null) stmt.close();
                 if (conn != null) conn.close();
