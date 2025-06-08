@@ -1,34 +1,90 @@
 package org.example;
 
 import org.example.classes.Agent;
+import org.example.classes.Client;
+import org.example.classes.Compte; // Importez Compte pour utiliser getCompteByNumero
+import org.example.classes.Message;
 import org.example.database.ConnectionBD;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.Scanner;
 
 public class Main {
 
-    // Méthode utilitaire pour obtenir l'ID d'un client par email
-    public static String getClientIdByEmail(String email) {
+    // Méthode utilitaire pour vérifier l'existence d'un client
+    public static boolean doesClientExist(int clientId) { // CHANGÉ : Prend un int
+        String sql = "SELECT COUNT(*) FROM clients WHERE id = ?";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, clientId); // Utilisez setInt
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la vérification de l'existence du client " + clientId + ": " + e.getMessage());
+        }
+        return false;
+    }
+
+    // Méthode utilitaire pour insérer un compte directement (pour le test)
+    public static void insertTestAccount(String numero, double solde, int clientId, String typeCompte) { // CHANGÉ : clientId est int
+        String sql = "INSERT INTO compte (numero, solde, date_ouverture, client_id, type_compte, estBlockee, tauxInteret) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, numero);
+            pstmt.setDouble(2, solde);
+            pstmt.setDate(3, java.sql.Date.valueOf(LocalDate.now()));
+            pstmt.setInt(4, clientId); // Utilisez setInt
+            pstmt.setString(5, typeCompte);
+            pstmt.setBoolean(6, false); // Not blocked by default
+            pstmt.setObject(7, null); // No interest rate for all types
+            pstmt.executeUpdate();
+            System.out.println("Compte de test '" + numero + "' inséré pour le client ID " + clientId);
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de l'insertion du compte de test: " + e.getMessage());
+        }
+    }
+
+    // Méthode utilitaire pour obtenir l'ID d'un client par email (maintenant retourne int)
+    public static int getClientIdByEmail(String email) { // CHANGÉ : Retourne int
         String sql = "SELECT id FROM clients WHERE email = ?";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, email);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                return rs.getString("id");
+                return rs.getInt("id"); // CHANGÉ : Récupère int
             }
         } catch (SQLException e) {
             System.err.println("Erreur lors de la récupération de l'ID client par email: " + e.getMessage());
         }
-        return null;
+        return 0; // Retourne 0 si non trouvé ou erreur
     }
 
+    // Méthode utilitaire pour vérifier l'état de blocage d'un compte
+    public static boolean isCompteBlocked(String numeroCompte) {
+        String sql = "SELECT estBlockee FROM compte WHERE numero = ?";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, numeroCompte);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getBoolean("estBlockee");
+            }
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la vérification de l'état du compte " + numeroCompte + ": " + e.getMessage());
+        }
+        return false; // Par défaut, considérer non bloqué ou erreur
+    }
+
+
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in); // Création du Scanner
+        Scanner scanner = new Scanner(System.in);
 
         // --- Test de connexion à la base de données ---
         System.out.println("--- Test de connexion à la base de données ---");
@@ -37,7 +93,7 @@ public class Main {
                 System.out.println("Connexion à la base de données réussie !");
             } else {
                 System.out.println("Échec de la connexion à la base de données. Veuillez vérifier votre configuration.");
-                return; // Arrêter si la connexion échoue
+                return;
             }
         } catch (SQLException e) {
             System.err.println("Erreur SQL lors du test de connexion : " + e.getMessage());
@@ -45,9 +101,9 @@ public class Main {
         }
         System.out.println("----------------------------------------------\n");
 
-        Agent agent = null; // L'objet agent sera créé après authentification
+        Agent agent = null;
         boolean authenticated = false;
-        int maxAttempts = 3; // Nombre maximum de tentatives d'authentification
+        int maxAttempts = 3;
         int currentAttempt = 0;
 
         // Boucle d'authentification de l'agent
@@ -58,12 +114,13 @@ public class Main {
             System.out.print("Entrez votre mot de passe : ");
             String motDePasse = scanner.nextLine();
 
-            Agent tempAgent = new Agent(login, motDePasse);
+            // Crée une instance temporaire d'Agent pour tenter l'authentification
+            Agent tempAgent = new Agent(login, motDePasse); // L'ID sera hydraté par sauthentifier
             authenticated = tempAgent.sauthentifier(login, motDePasse);
 
             if (authenticated) {
                 agent = tempAgent; // Assignation de l'agent authentifié
-                System.out.println(" Bienvenue, " + agent.getLogin() + ".");
+                System.out.println("Authentification réussie ! Bienvenue, " + agent.getLogin() + ".");
             } else {
                 currentAttempt++;
                 System.out.println("Login ou mot de passe incorrect. Tentative " + currentAttempt + "/" + maxAttempts + ".");
@@ -89,11 +146,11 @@ public class Main {
 
                 while (!scanner.hasNextInt()) {
                     System.out.println("Entrée invalide. Veuillez entrer un numéro.");
-                    scanner.next(); // Consomme l'entrée invalide
+                    scanner.next();
                     System.out.print("Entrez votre choix : ");
                 }
                 choix = scanner.nextInt();
-                scanner.nextLine(); // Consomme la nouvelle ligne restante après nextInt()
+                scanner.nextLine();
 
                 switch (choix) {
                     case 1:
@@ -102,11 +159,6 @@ public class Main {
                         String nom = scanner.nextLine();
                         System.out.print("Prénom du client : ");
                         String prenom = scanner.nextLine();
-                        // L'attribut agence n'existe pas dans votre DB pour les clients.
-                        // Je le laisse ici pour coller à votre constructeur Client si vous l'utilisez,
-                        // mais il n'est pas utilisé par agent.ajouterClient.
-                        // Supprimez cette ligne si vous modifiez le constructeur Client.
-                        // String agence = "Non renseignée"; // ou demander à l'utilisateur
                         System.out.print("Email du client : ");
                         String email = scanner.nextLine();
                         System.out.print("Téléphone du client : ");
@@ -127,9 +179,11 @@ public class Main {
                         System.out.println("\n--- Blocage d'un compte ---");
                         System.out.print("Entrez le numéro du compte à bloquer : ");
                         String numCompteBloquer = scanner.nextLine();
+                        System.out.println("État actuel du compte " + numCompteBloquer + " (avant blocage): " + (isCompteBlocked(numCompteBloquer) ? "Bloqué" : "Débloqué"));
                         boolean blocked = agent.bloquerCompte(numCompteBloquer);
                         if (blocked) {
                             System.out.println("Compte " + numCompteBloquer + " bloqué avec succès.");
+                            System.out.println("Nouvel état du compte " + numCompteBloquer + ": " + (isCompteBlocked(numCompteBloquer) ? "Bloqué" : "Débloqué"));
                         } else {
                             System.out.println("Échec du blocage du compte " + numCompteBloquer + ".");
                         }
@@ -138,29 +192,54 @@ public class Main {
                         System.out.println("\n--- Déblocage d'un compte ---");
                         System.out.print("Entrez le numéro du compte à débloquer : ");
                         String numCompteDebloquer = scanner.nextLine();
+                        System.out.println("État actuel du compte " + numCompteDebloquer + " (avant déblocage): " + (isCompteBlocked(numCompteDebloquer) ? "Bloqué" : "Débloqué"));
                         boolean unblocked = agent.debloquerCompte(numCompteDebloquer);
                         if (unblocked) {
                             System.out.println("Compte " + numCompteDebloquer + " débloqué avec succès.");
+                            System.out.println("Nouvel état du compte " + numCompteDebloquer + ": " + (isCompteBlocked(numCompteDebloquer) ? "Bloqué" : "Débloqué"));
                         } else {
                             System.out.println("Échec du déblocage du compte " + numCompteDebloquer + ".");
                         }
                         break;
                     case 4:
                         System.out.println("\n--- Suppression d'un client ---");
-                        System.out.print("Entrez l'ID du client à supprimer : ");
-                        while (!scanner.hasNextInt()) {
-                            System.out.println("Entrée invalide. Veuillez entrer un numéro d'ID valide.");
-                            scanner.next(); // Consomme l'entrée invalide
-                            System.out.print("Entrez l'ID du client à supprimer : ");
-                        }
-                        int clientIdToDelete = scanner.nextInt();
-                        scanner.nextLine(); // Consomme la nouvelle ligne
-
-                        boolean clientSuppressed = agent.supprimerClient(clientIdToDelete);
-                        if (clientSuppressed) {
-                            System.out.println("Client avec ID " + clientIdToDelete + " et ses données associées supprimés.");
+                        System.out.println("Veuillez d'abord ajouter un client à supprimer si ce n'est pas déjà fait.");
+                        System.out.print("Nom du client à ajouter (pour test suppression) : ");
+                        String nomSupp = scanner.nextLine();
+                        System.out.print("Email du client à ajouter (pour test suppression) : ");
+                        String emailSupp = scanner.nextLine();
+                        // Ajoutez un client de test, s'il n'existe pas déjà
+                        int clientIdForDeletion = getClientIdByEmail(emailSupp);
+                        if (clientIdForDeletion == 0) { // Client n'existe pas, ajoutons-le
+                            agent.ajouterClient(
+                                    nomSupp, "TestSupp", emailSupp, "0987654321", "Rue Test, Ville", "passDelete"
+                            );
+                            clientIdForDeletion = getClientIdByEmail(emailSupp); // Récupère l'ID généré
+                            if (clientIdForDeletion != 0) {
+                                System.out.println("Client de test créé avec ID: " + clientIdForDeletion);
+                                // Ajoutons aussi un compte et un message pour ce client pour tester la cascade
+                                insertTestAccount("ACC-" + clientIdForDeletion + "-01", 500.0, clientIdForDeletion, "Courant");
+                                Message.envoyerMessage("Sujet Test", "Contenu test message", clientIdForDeletion);
+                            } else {
+                                System.out.println("Échec de la création du client de test. Annulation du test de suppression.");
+                                break;
+                            }
                         } else {
-                            System.out.println("Échec de la suppression du client avec ID " + clientIdToDelete + ". Vérifiez l'ID.");
+                            System.out.println("Client de test avec email " + emailSupp + " (ID: " + clientIdForDeletion + ") existe déjà. Utilisation de ce client.");
+                        }
+
+                        if (clientIdForDeletion != 0) {
+                            System.out.println("\nTentative de suppression du client avec ID : " + clientIdForDeletion);
+                            System.out.println("Existence du client avant suppression (ID " + clientIdForDeletion + ") : " + doesClientExist(clientIdForDeletion));
+
+                            boolean clientSuppressed = agent.supprimerClient(clientIdForDeletion);
+
+                            if (clientSuppressed) {
+                                System.out.println("Client avec ID " + clientIdForDeletion + " et ses données associées supprimés avec succès !");
+                                System.out.println("Existence du client après suppression (ID " + clientIdForDeletion + ") : " + doesClientExist(clientIdForDeletion));
+                            } else {
+                                System.out.println("Échec de la suppression du client avec ID " + clientIdForDeletion + ".");
+                            }
                         }
                         break;
                     case 0:
