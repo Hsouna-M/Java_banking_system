@@ -196,9 +196,52 @@ public class Client implements ServiceAuthentification {
         return Message.envoyerMessage(sujet, contenu, this.id);
     }
 
+    /**
+     * Transfers a specified amount from a source account to a destination account.
+     * The source account must belong to the client.
+     *
+     * @param compteSourceNumero      The account number of the source account.
+     * @param compteDestinataireNumero The account number of the destination account.
+     * @param montant                 The amount to transfer.
+     * @return true if the transfer was successful, false otherwise.
+     */
+    public boolean effectuerVirement(String compteSourceNumero, String compteDestinataireNumero, double montant) {
+        // Security check: Ensure the source account belongs to this client
+        if (!this.listCompteNumeros.contains(compteSourceNumero)) {
+            System.err.println("Transaction failed: The source account does not belong to this client.");
+            return false;
+        }
 
+        // Fetch Compte objects from the database using the new helper method
+        Compte compteSource = Compte.getCompteByNumero(compteSourceNumero);
+        Compte compteDestinataire = Compte.getCompteByNumero(compteDestinataireNumero);
 
+        // Validate that accounts exist
+        if (compteSource == null) {
+            System.err.println("Transaction failed: Source account not found.");
+            return false;
+        }
+        if (compteDestinataire == null) {
+            System.err.println("Transaction failed: Destination account not found.");
+            return false;
+        }
 
+        // Check if the source account is blocked
+        if (compteSource.isEstBlockee()) {
+            System.err.println("Transaction failed: Source account is blocked.");
+            return false;
+        }
 
+        // Execute the transaction
+        try {
+            Transaction transaction = new Transaction(compteSourceNumero, compteDestinataireNumero, montant);
+            // The executerTransaction method handles the withdrawal, deposit, and DB logging
+            return transaction.executerTransaction(compteSource, compteDestinataire);
+        } catch (SQLException e) {
+            System.err.println("Error creating the transaction object: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
 
 }
