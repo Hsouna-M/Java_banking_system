@@ -2,32 +2,31 @@ package org.example.classes;
 
 import java.util.Date;
 
-public abstract class Compte {
-    private int RIB;
+public class Compte {
+    private String numero;
     private String type;
     private double solde;
     private boolean estBlockee;
     private Date dateOuverture;
 
-    public Compte(int RIB, String type) {
-        this(RIB, type, 0.0, false); // default solde = 0.0, estBlockee = false
+    public Compte(String numero, String type) {
+        this(numero, type, 0.0, false); // default solde = 0.0, estBlockee = false
     }
 
-
-    public Compte(int RIB, String type, double solde, boolean estBlockee) {
-        this.RIB = RIB;
+    public Compte(String numero, String type, double solde, boolean estBlockee) {
+        this.numero = numero;
         this.type = type;
         this.solde = solde;
         this.estBlockee = estBlockee;
         this.dateOuverture = new Date();
     }
 
-    public int getRIB() {
-        return RIB;
+    public String getNumero() {
+        return numero;
     }
 
-    public void setRIB(int RIB) {
-        this.RIB = RIB;
+    public void setNumero(int RIB) {
+        this.numero = numero;
     }
 
     public double getSolde() {
@@ -48,16 +47,19 @@ public abstract class Compte {
         }
     }
 
-    public abstract void afficherInfos(); // Abstract method
 
     @Override
     public String toString() {
         return "Compte{" +
-                "RIB=" + RIB +
+                "RIB=" + numero +
                 ", type='" + type + '\'' +
                 ", solde=" + solde +
                 ", estBlockee=" + estBlockee +
                 ", dateOuverture=" + dateOuverture +
                 '}';
+    }
+
+    protected Date getDateOuverture() {
+        return dateOuverture;
     }
 }
