@@ -1,16 +1,23 @@
 package org.example;
 
 import org.example.classes.Agent;
+import org.example.classes.Client;
+import org.example.classes.Compte; // Importez Compte pour utiliser getCompteByNumero
+import org.example.classes.Message;
 import org.example.database.ConnectionBD;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 
 public class Main {
 
+    // Méthode utilitaire pour vérifier l'existence d'un client
     public static boolean doesClientExist(int clientId) {
         String sql = "SELECT COUNT(*) FROM clients WHERE id = ?";
         try (Connection conn = ConnectionBD.getConnection();
@@ -26,6 +33,7 @@ public class Main {
         return false;
     }
 
+    // Méthode utilitaire pour insérer un compte directement (pour le test)
     public static void insertTestAccount(String numero, double solde, int clientId, String typeCompte) {
         String sql = "INSERT INTO compte (numero, solde, date_ouverture, client_id, type_compte, estBlockee, tauxInteret) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = ConnectionBD.getConnection();
@@ -35,8 +43,8 @@ public class Main {
             pstmt.setDate(3, java.sql.Date.valueOf(LocalDate.now()));
             pstmt.setInt(4, clientId);
             pstmt.setString(5, typeCompte);
-            pstmt.setBoolean(6, false);
-            pstmt.setObject(7, null);
+            pstmt.setBoolean(6, false); // Not blocked by default
+            pstmt.setObject(7, null); // No interest rate for all types
             pstmt.executeUpdate();
             System.out.println("Compte de test '" + numero + "' inséré pour le client ID " + clientId);
         } catch (SQLException e) {
@@ -44,6 +52,7 @@ public class Main {
         }
     }
 
+    // Méthode utilitaire pour obtenir l'ID d'un client par email (maintenant retourne int)
     public static int getClientIdByEmail(String email) {
         String sql = "SELECT id FROM clients WHERE email = ?";
         try (Connection conn = ConnectionBD.getConnection();
@@ -56,9 +65,10 @@ public class Main {
         } catch (SQLException e) {
             System.err.println("Erreur lors de la récupération de l'ID client par email: " + e.getMessage());
         }
-        return 0;
+        return 0; // Retourne 0 si non trouvé ou erreur
     }
 
+    // Méthode utilitaire pour obtenir l'ID d'un client par nom et prénom
     public static int getClientIdByNameAndPrenom(String nom, String prenom) {
         String sql = "SELECT id FROM clients WHERE nom = ? AND prenom = ?";
         try (Connection conn = ConnectionBD.getConnection();
@@ -76,6 +86,7 @@ public class Main {
     }
 
 
+    // Méthode utilitaire pour vérifier l'état de blocage d'un compte
     public static boolean isCompteBlocked(String numeroCompte) {
         String sql = "SELECT estBlockee FROM compte WHERE numero = ?";
         try (Connection conn = ConnectionBD.getConnection();
@@ -88,13 +99,26 @@ public class Main {
         } catch (SQLException e) {
             System.err.println("Erreur lors de la vérification de l'état du compte " + numeroCompte + ": " + e.getMessage());
         }
-        return false;
+        return false; // Par défaut, considérer non bloqué ou erreur
     }
 
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
+        // --- Test de connexion à la base de données ---
+        System.out.println("--- Test de connexion à la base de données ---");
+        try (Connection conn = ConnectionBD.getConnection()) {
+            if (conn != null) {
+                System.out.println("Connexion à la base de données réussie !");
+            } else {
+                System.out.println("Échec de la connexion à la base de données. Veuillez vérifier votre configuration.");
+                return;
+            }
+        } catch (SQLException e) {
+            System.err.println("Erreur SQL lors du test de connexion : " + e.getMessage());
+            return;
+        }
         System.out.println("----------------------------------------------\n");
 
         Agent agent = null;
@@ -102,6 +126,7 @@ public class Main {
         int maxAttempts = 3;
         int currentAttempt = 0;
 
+        // Boucle d'authentification de l'agent
         while (!authenticated && currentAttempt < maxAttempts) {
             System.out.println("--- Authentification de l'agent ---");
             System.out.print("Entrez votre login : ");
@@ -109,11 +134,11 @@ public class Main {
             System.out.print("Entrez votre mot de passe : ");
             String motDePasse = scanner.nextLine();
 
-            Agent tempAgent = new Agent(login, motDePasse); // L'ID sera hydraté par sauthentifier
+            Agent tempAgent = new Agent(login, motDePasse);
             authenticated = tempAgent.sauthentifier(login, motDePasse);
 
             if (authenticated) {
-                agent = tempAgent; // Assignation de l'agent authentifié
+                agent = tempAgent;
                 System.out.println("Authentification réussie ! Bienvenue, " + agent.getLogin() + ".");
             } else {
                 currentAttempt++;
@@ -126,6 +151,7 @@ public class Main {
             }
         }
 
+        // Si l'authentification est réussie, afficher le menu des options
         if (authenticated) {
             int choix;
             do {
@@ -134,6 +160,10 @@ public class Main {
                 System.out.println("2. Bloquer un compte client");
                 System.out.println("3. Débloquer un compte client");
                 System.out.println("4. Supprimer un client");
+                System.out.println("5. Consulter les clients");
+                System.out.println("6. Consulter les comptes");
+                System.out.println("7. Consulter les transactions");
+                System.out.println("8. Consulter les messages");
                 System.out.println("0. Quitter");
                 System.out.print("Entrez votre choix : ");
 
@@ -196,15 +226,14 @@ public class Main {
                         break;
                     case 4:
                         System.out.println("\n--- Suppression d'un client ---");
-                        // Demande directement l'ID du client à supprimer
                         System.out.print("Entrez l'ID du client à supprimer : ");
                         while (!scanner.hasNextInt()) {
                             System.out.println("Entrée invalide. Veuillez entrer un numéro d'ID valide.");
-                            scanner.next(); // Consomme l'entrée invalide
+                            scanner.next();
                             System.out.print("Entrez l'ID du client à supprimer : ");
                         }
                         int clientIdToDelete = scanner.nextInt();
-                        scanner.nextLine(); // Consomme la nouvelle ligne
+                        scanner.nextLine();
 
                         System.out.println("\nTentative de suppression du client avec ID : " + clientIdToDelete);
                         System.out.println("Existence du client avant suppression (ID " + clientIdToDelete + ") : " + doesClientExist(clientIdToDelete));
@@ -216,6 +245,42 @@ public class Main {
                             System.out.println("Existence du client après suppression (ID " + clientIdToDelete + ") : " + doesClientExist(clientIdToDelete));
                         } else {
                             System.out.println("Échec de la suppression du client avec ID " + clientIdToDelete + ".");
+                        }
+                        break;
+                    case 5:
+                        System.out.println("\n--- Consultation des clients ---");
+                        List<Map<String, Object>> clients = agent.consulterClients();
+                        if (clients.isEmpty()) {
+                            System.out.println("Aucun client trouvé.");
+                        } else {
+                            clients.forEach(System.out::println);
+                        }
+                        break;
+                    case 6:
+                        System.out.println("\n--- Consultation des comptes ---");
+                        List<Map<String, Object>> comptes = agent.consulterComptes();
+                        if (comptes.isEmpty()) {
+                            System.out.println("Aucun compte trouvé.");
+                        } else {
+                            comptes.forEach(System.out::println);
+                        }
+                        break;
+                    case 7:
+                        System.out.println("\n--- Consultation des transactions ---");
+                        List<Map<String, Object>> transactions = agent.consulterTransactions();
+                        if (transactions.isEmpty()) {
+                            System.out.println("Aucune transaction trouvée.");
+                        } else {
+                            transactions.forEach(System.out::println);
+                        }
+                        break;
+                    case 8:
+                        System.out.println("\n--- Consultation des messages ---");
+                        List<Map<String, Object>> messages = agent.consulterMessages(); // Appelle la méthode renommée
+                        if (messages.isEmpty()) {
+                            System.out.println("Aucun message trouvé.");
+                        } else {
+                            messages.forEach(System.out::println);
                         }
                         break;
                     case 0:

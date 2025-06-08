@@ -5,31 +5,33 @@ import org.example.database.ConnectionBD;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class Agent implements ServiceAuthentification {
-    private String id;
+    private int id;
     private String login;
     private String motDePasseHash;
-
-    //  Constructeur pour un nouvel agent
 
     public Agent(String login, String motDePasseHash) {
         this.login = login;
         this.motDePasseHash = motDePasseHash;
     }
 
-    //Constructeur pour récupérer un agent existant de la base de données
-
-    public Agent(String id, String login, String motDePasseHash) {
+    public Agent(int id, String login, String motDePasseHash) {
         this.id = id;
         this.login = login;
         this.motDePasseHash = motDePasseHash;
     }
 
-    public String getId() {
+    public int getId() {
         return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 
     public String getLogin() {
@@ -48,8 +50,6 @@ public class Agent implements ServiceAuthentification {
         this.motDePasseHash = motDePasseHash;
     }
 
-    // @return L'objet Agent si trouvé, sinon null.
-
     public static Agent getAgentByLogin(String login) {
         String sql = "SELECT id, login, mot_de_passe_hash FROM Agent WHERE login = ?";
         try (Connection conn = ConnectionBD.getConnection();
@@ -57,7 +57,7 @@ public class Agent implements ServiceAuthentification {
             pstmt.setString(1, login);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                return new Agent(rs.getString("id"), rs.getString("login"), rs.getString("mot_de_passe_hash"));
+                return new Agent(rs.getInt("id"), rs.getString("login"), rs.getString("mot_de_passe_hash"));
             }
         } catch (SQLException e) {
             System.err.println("Erreur lors de la récupération de l'agent par login: " + e.getMessage());
@@ -70,7 +70,6 @@ public class Agent implements ServiceAuthentification {
         Agent agent = getAgentByLogin(login);
 
         if (agent != null && agent.getMotDePasseHash().equals(mdp)) {
-
             this.id = agent.getId();
             this.login = agent.getLogin();
             this.motDePasseHash = agent.getMotDePasseHash();
@@ -118,7 +117,6 @@ public class Agent implements ServiceAuthentification {
     }
 
     public boolean ajouterClient(String nom, String prenom, String email, String telephone, String adresse, String motDePasseHash) {
-
         String sql = "INSERT INTO clients (nom, prenom, email, telephone, adresse, mot_de_passe_hash) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -135,8 +133,7 @@ public class Agent implements ServiceAuthentification {
                 return true;
             }
         } catch (SQLException e) {
-            // Gérer le cas où l'email est déjà existant (clé unique)
-            if (e.getErrorCode() == 1062) { // Code d'erreur pour les duplicata sous MySQL
+            if (e.getErrorCode() == 1062) {
                 System.err.println("Erreur: L'email '" + email + "' est déjà utilisé.");
             } else {
                 System.err.println("Erreur lors de l'ajout du client: " + e.getMessage());
@@ -149,18 +146,16 @@ public class Agent implements ServiceAuthentification {
     public boolean supprimerClient(int clientId) {
         Connection conn = null;
         try {
-            conn = ConnectionBD.getConnection();  //Toutes les opérations SQL suivantes exécutées sur cette connexion feront partie d'une seule et même transaction.
+            conn = ConnectionBD.getConnection();
             conn.setAutoCommit(false);
 
-            // 1. Supprimer les messages envoyés par/reçus par le client
             String deleteMessagesSql = "DELETE FROM Message WHERE client_id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(deleteMessagesSql)) {
                 pstmt.setInt(1, clientId);
                 pstmt.executeUpdate();
             }
 
-            // 2. Récupérer les numéros de compte du client pour supprimer leurs transactions associées
-            List<String> accountNumbers = new ArrayList<>(); // Interface Polymorphique
+            List<String> accountNumbers = new ArrayList<>();
             String getAccountsSql = "SELECT numero FROM compte WHERE client_id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(getAccountsSql)) {
                 pstmt.setInt(1, clientId);
@@ -169,7 +164,6 @@ public class Agent implements ServiceAuthentification {
                     accountNumbers.add(rs.getString("numero"));
                 }
             }
-            // 3. Supprimer les transactions où le compte source ou destination est un des comptes du client.
 
             if (!accountNumbers.isEmpty()) {
                 String placeholders = String.join(",", java.util.Collections.nCopies(accountNumbers.size(), "?"));
@@ -187,26 +181,24 @@ public class Agent implements ServiceAuthentification {
                 }
             }
 
-            // 4. Supprimer les comptes du client
             String deleteAccountsSql = "DELETE FROM compte WHERE client_id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(deleteAccountsSql)) {
                 pstmt.setInt(1, clientId);
                 pstmt.executeUpdate();
             }
 
-            // 5. Supprimer le client lui-même
             String deleteClientSql = "DELETE FROM clients WHERE id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(deleteClientSql)) {
                 pstmt.setInt(1, clientId);
                 int affectedRows = pstmt.executeUpdate();
 
                 if (affectedRows > 0) {
-                    conn.commit(); // Valide toutes les opérations de la transaction
+                    conn.commit();
                     Journal.logAction("Suppression Client", LocalDateTime.now(), login, "Client supprimé : " + clientId);
                     System.out.println("Client " + clientId + " et ses données associées supprimés avec succès.");
                     return true;
                 } else {
-                    conn.rollback(); // Annule la transaction si aucun client n'a été trouvé/supprimé
+                    conn.rollback();
                     System.out.println("Aucun client trouvé avec l'ID : " + clientId + ". La suppression a été annulée.");
                     return false;
                 }
@@ -215,13 +207,12 @@ public class Agent implements ServiceAuthentification {
             System.err.println("Erreur lors de la suppression du client " + clientId + ": " + e.getMessage());
             if (conn != null) {
                 try {
-                    conn.rollback(); // Annule la transaction en cas d'erreur
+                    conn.rollback();
                 } catch (SQLException ex) {
                     System.err.println("Erreur lors du rollback après une erreur de suppression: " + ex.getMessage());
                 }
             }
         } finally {
-            // Rétablit l'auto-commit et ferme la connexion dans tous les cas
             if (conn != null) {
                 try {
                     conn.setAutoCommit(true);
@@ -253,95 +244,101 @@ public class Agent implements ServiceAuthentification {
         return false;
     }
 
-    public ResultSet consulterClients() {
-        String sql = "SELECT * FROM clients";
-        Connection conn = null;
-        Statement stmt = null;
-        try {
-            conn = ConnectionBD.getConnection();
-            stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql);
+    // --- Méthodes de consultation mises à jour ---
+
+    public List<Map<String, Object>> consulterClients() {
+        List<Map<String, Object>> clients = new ArrayList<>();
+        String sql = "SELECT id, nom, prenom, email, telephone, adresse FROM clients";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) { // Utilisation de try-with-resources pour ResultSet
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+
+            while (rs.next()) {
+                Map<String, Object> clientData = new HashMap<>();
+                for (int i = 1; i <= columnCount; i++) {
+                    clientData.put(metaData.getColumnLabel(i), rs.getObject(i));
+                }
+                clients.add(clientData);
+            }
             System.out.println("Consultation des clients par l'agent " + this.login + ".");
             Journal.logAction("Consulter Clients", LocalDateTime.now(), this.login, "Liste des clients consultée.");
-            return rs;
         } catch (SQLException e) {
             System.err.println("Erreur lors de la consultation des clients: " + e.getMessage());
-            try {
-                if (stmt != null) stmt.close();
-                if (conn != null) conn.close();
-            } catch (SQLException ex) {
-                System.err.println("Erreur lors de la fermeture des ressources après une erreur de consultation des clients: " + ex.getMessage());
-            }
         }
-        return null;
+        return clients;
     }
 
-    public ResultSet consulterComptes() {
-        String sql = "SELECT * FROM compte";
-        Connection conn = null;
-        Statement stmt = null;
-        try {
-            conn = ConnectionBD.getConnection();
-            stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql);
+    public List<Map<String, Object>> consulterComptes() {
+        List<Map<String, Object>> comptes = new ArrayList<>();
+        String sql = "SELECT numero, solde, date_ouverture, client_id, type_compte, estBlockee, tauxInteret FROM compte";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+
+            while (rs.next()) {
+                Map<String, Object> compteData = new HashMap<>();
+                for (int i = 1; i <= columnCount; i++) {
+                    compteData.put(metaData.getColumnLabel(i), rs.getObject(i));
+                }
+                comptes.add(compteData);
+            }
             System.out.println("Consultation des comptes par l'agent " + this.login + ".");
             Journal.logAction("Consulter Comptes", LocalDateTime.now(), this.login, "Liste des comptes consultée.");
-            return rs;
         } catch (SQLException e) {
             System.err.println("Erreur lors de la consultation des comptes: " + e.getMessage());
-            try {
-                if (stmt != null) stmt.close();
-                if (conn != null) conn.close();
-            } catch (SQLException ex) {
-                System.err.println("Erreur lors de la fermeture des ressources après une erreur de consultation des comptes: " + ex.getMessage());
-            }
         }
-        return null;
+        return comptes;
     }
 
-    public ResultSet consulterTransactions() {
-        String sql = "SELECT * FROM transaction";
-        Connection conn = null;
-        Statement stmt = null;
-        try {
-            conn = ConnectionBD.getConnection();
-            stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql);
+    public List<Map<String, Object>> consulterTransactions() {
+        List<Map<String, Object>> transactions = new ArrayList<>();
+        String sql = "SELECT id, montant, date_transaction, compte_source_numero, compte_destination_numero FROM transaction";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+
+            while (rs.next()) {
+                Map<String, Object> transactionData = new HashMap<>();
+                for (int i = 1; i <= columnCount; i++) {
+                    transactionData.put(metaData.getColumnLabel(i), rs.getObject(i));
+                }
+                transactions.add(transactionData);
+            }
             System.out.println("Consultation des transactions par l'agent " + this.login + ".");
             Journal.logAction("Consulter Transactions", LocalDateTime.now(), this.login, "Liste des transactions consultée.");
-            return rs;
         } catch (SQLException e) {
             System.err.println("Erreur lors de la consultation des transactions: " + e.getMessage());
-            try {
-                if (stmt != null) stmt.close();
-                if (conn != null) conn.close();
-            } catch (SQLException ex) {
-                System.err.println("Erreur lors de la fermeture des ressources après une erreur de consultation des transactions: " + ex.getMessage());
-            }
         }
-        return null;
+        return transactions;
     }
 
-    public ResultSet consulterMessage() {
-        String sql = "SELECT * FROM Message";
-        Connection conn = null;
-        Statement stmt = null;
-        try {
-            conn = ConnectionBD.getConnection();
-            stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql);
+    public List<Map<String, Object>> consulterMessages() { // Renommée pour la cohérence
+        List<Map<String, Object>> messages = new ArrayList<>();
+        String sql = "SELECT id, sujet, contenu, date_message, client_id, lu FROM Message";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+
+            while (rs.next()) {
+                Map<String, Object> messageData = new HashMap<>();
+                for (int i = 1; i <= columnCount; i++) {
+                    messageData.put(metaData.getColumnLabel(i), rs.getObject(i));
+                }
+                messages.add(messageData);
+            }
             System.out.println("Consultation des messages par l'agent " + this.login + ".");
             Journal.logAction("Consulter Messages", LocalDateTime.now(), this.login, "Liste des messages consultée.");
-            return rs;
         } catch (SQLException e) {
             System.err.println("Erreur lors de la consultation des messages: " + e.getMessage());
-            try {
-                if (stmt != null) stmt.close();
-                if (conn != null) conn.close();
-            } catch (SQLException ex) {
-                System.err.println("Erreur lors de la fermeture des ressources après une erreur de consultation des messages: " + ex.getMessage());
-            }
         }
-        return null;
+        return messages;
     }
 }
