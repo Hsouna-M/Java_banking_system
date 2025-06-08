@@ -2,7 +2,7 @@ package org.example.classes;
 
 import java.util.Date;
 
-public class Compte {
+public abstract class Compte {
     private String numero;
     private String type;
     private double solde;
@@ -25,7 +25,7 @@ public class Compte {
         return numero;
     }
 
-    public void setNumero(int RIB) {
+    public void setNumero(String numero) {
         this.numero = numero;
     }
 
@@ -36,16 +36,14 @@ public class Compte {
     public void setSolde(double solde) {
         this.solde = solde;
     }
-
-    public boolean retirer(double montant) {
-        if (montant > solde) {
-            System.out.println("Vous ne disposez pas de ce montant.\nVeuillez insérer un montant équivalent.");
-            return false;
-        } else {
-            solde -= montant;
-            return true;
-        }
+    public String getType() {
+        return type;
     }
+    public void setType(String type) {
+        this.type=type;
+    }
+    
+    public abstract boolean retirer(double montant);
 
 
     @Override
