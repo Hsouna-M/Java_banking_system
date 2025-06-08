@@ -153,7 +153,7 @@ public class Agent implements ServiceAuthentification {
             conn.setAutoCommit(false);
 
             // 1. Supprimer les messages envoyés par/reçus par le client
-            String deleteMessagesSql = "DELETE FROM Message WHERE client_id = ?";
+            String deleteMessagesSql = "DELETE FROM message WHERE client_id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(deleteMessagesSql)) {
                 pstmt.setInt(1, clientId);
                 pstmt.executeUpdate();
@@ -264,7 +264,26 @@ public class Agent implements ServiceAuthentification {
      */
 
 
-    public ResultSet consulterClients() {
+    public List<Client> consulterClients() {
+        List<Client> clients = new ArrayList<>();
+        String sql = "SELECT id FROM clients ORDER BY id";
+        try (Connection conn = ConnectionBD.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                Client client = Client.getClientById(rs.getInt("id"));
+                if (client != null) {
+                    clients.add(client);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la consultation des clients: " + e.getMessage());
+        }
+        Journal.logAction("Consulter Clients", LocalDateTime.now(), this.login, "Liste des clients consultée.");
+        return clients;
+    }
+
+    /* public ResultSet consulterClients() {
         String sql = "SELECT * FROM clients";
         Connection conn = null;
         Statement stmt = null;
@@ -285,7 +304,7 @@ public class Agent implements ServiceAuthentification {
             }
         }
         return null;
-    }
+    }*/
 
     public ResultSet consulterComptes() {
         String sql = "SELECT * FROM compte";
@@ -310,7 +329,36 @@ public class Agent implements ServiceAuthentification {
         return null;
     }
 
-    public ResultSet consulterTransactions() {
+    public List<Transaction> consulterTransactions() {
+        List<Transaction> transactions = new ArrayList<>();
+        String sql = "SELECT * FROM transaction ORDER BY date_transaction DESC";
+
+        try (Connection conn = ConnectionBD.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                double amount = rs.getDouble("montant");
+                String source = rs.getString("compte_source_numero");
+                String destination = rs.getString("compte_destination_numero");
+                Date date = rs.getDate("date_transaction");
+                Transaction trs = new Transaction(source,destination,amount);
+                trs.setDateTransaction(date);
+                transactions.add(trs);
+            }
+
+            System.out.println("Consultation des transactions par l'agent " + this.login + ".");
+            Journal.logAction("Consulter Transactions", LocalDateTime.now(), this.login, "Liste des transactions consultée.");
+
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la consultation des transactions: " + e.getMessage());
+        }
+
+        return transactions;
+    }
+
+/*    public ResultSet consulterTransactions() {
         String sql = "SELECT * FROM transaction";
         Connection conn = null;
         Statement stmt = null;
@@ -331,7 +379,7 @@ public class Agent implements ServiceAuthentification {
             }
         }
         return null;
-    }
+    }*/
 
     public ResultSet consulterMessage() {
         String sql = "SELECT * FROM Message";

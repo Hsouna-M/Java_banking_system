@@ -11,6 +11,8 @@ public abstract class Compte {
     private double solde;
     private boolean estBlockee;
     private Date dateOuverture;
+    private int clientId ;
+
 
     public Compte(String numero, String type) {
         this(numero, type, 0.0, false); // default solde = 0.0, estBlockee = false
@@ -22,6 +24,14 @@ public abstract class Compte {
         this.solde = solde;
         this.estBlockee = estBlockee;
         this.dateOuverture = new Date();
+    }
+
+    public int getClientId(){
+        return this.clientId;
+    }
+
+    public int setClientId(int id){
+        return this.clientId=id;
     }
 
     public String getNumero() {
@@ -54,14 +64,18 @@ public abstract class Compte {
         return "Compte{" +
                 "RIB=" + numero +
                 ", type='" + type + '\'' +
-                ", solde=" + solde +
+                ", solde=" + this.getSolde() +
                 ", estBlockee=" + estBlockee +
-                ", dateOuverture=" + dateOuverture +
+                ", clientId=" + this.getClientId() +
+                ", dateOuverture=" + this.getDateOuverture() +
                 '}';
     }
 
-    protected Date getDateOuverture() {
+    public Date getDateOuverture() {
         return dateOuverture;
+    }
+    public Date setDateOuverture(Date dateOuverture) {
+        return this.dateOuverture=dateOuverture;
     }
     public boolean isEstBlockee() {
         return estBlockee;
@@ -86,6 +100,9 @@ public abstract class Compte {
             if (rs.next()) {
                 String type = rs.getString("type_compte");
                 boolean estBlockee = rs.getBoolean("estBlockee");
+                double solde = rs.getDouble("solde");
+                Date dateOuverture = rs.getDate("date_ouverture");
+                int clientId = rs.getInt("client_id");
 
                 Compte compte;
                 if ("Courant".equalsIgnoreCase(type)) {
@@ -98,6 +115,9 @@ public abstract class Compte {
                 }
 
                 compte.setEstBlockee(estBlockee);
+                compte.setSolde(solde);
+                compte.setDateOuverture(dateOuverture);
+                compte.setClientId(clientId);
                 return compte;
             }
         } catch (SQLException e) {

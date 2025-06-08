@@ -36,6 +36,29 @@ public class Message {
         this.lu = lu;
     }
 
+    public static List<Message> getAllUnreadMessages() {
+        List<Message> messages = new ArrayList<>();
+        // SQL query now filters for lu = FALSE
+        String sql = "SELECT id, sujet, contenu, date_message, client_id, lu FROM message WHERE lu = FALSE ORDER BY date_message DESC";
+        try (Connection conn = ConnectionBD.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                messages.add(new Message(
+                        rs.getInt("id"),
+                        rs.getString("sujet"),
+                        rs.getString("contenu"),
+                        rs.getTimestamp("date_message").toLocalDateTime(),
+                        rs.getInt("client_id"),
+                        rs.getBoolean("lu")
+                ));
+            }
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la récupération de tous les messages non lus: " + e.getMessage());
+        }
+        return messages;
+    }
+
 
     public int getId() {
         return id;
@@ -74,7 +97,7 @@ public class Message {
     }
 
     public static boolean envoyerMessage(String sujet, String contenu, int clientId) {
-        String sql = "INSERT INTO Message (sujet, contenu, date_message, client_id, lu) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO message (sujet, contenu, date_message, client_id, lu) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             LocalDateTime now = LocalDateTime.now();
@@ -100,7 +123,7 @@ public class Message {
      //  @return L'objet Message correspondant à l'ID, ou null
 
     public static Message getMessageById(int messageId) {
-        String sql = "SELECT id, sujet, contenu, date_message, client_id, lu FROM Message WHERE id = ?";
+        String sql = "SELECT id, sujet, contenu, date_message, client_id, lu FROM message WHERE id = ?";
         try (Connection conn = ConnectionBD.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, messageId);
@@ -167,5 +190,16 @@ public class Message {
             System.err.println("Erreur lors de la récupération de tous les messages: " + e.getMessage());
         }
         return messages;
+    }
+
+    @Override
+    public String toString() {
+        return "Message{" +
+                "id=" + this.getId() +
+                ", Subject='" + this.getSujet() + '\'' +
+                ", Content=" + this.getContenu() +
+                ", date=" + this.getDateMessage() +
+                ", clientId=" + this.getClientId() +
+                '}';
     }
 }
