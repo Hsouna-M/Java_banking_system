@@ -10,9 +10,9 @@ import java.sql.Types;
 public class CompteCourant extends Compte {
     private double decouvert;
 
-    public CompteCourant(String numero, double Solde) {
+    public CompteCourant(String numero) {
         super(numero, "courant");
-        this.decouvert = Solde*0.5;
+        this.decouvert = 500.0;
     }
 
     public double getDecouvert() {
@@ -65,6 +65,45 @@ public class CompteCourant extends Compte {
             return false;
         }
     }
+
+
+    @Override
+    public boolean deposer(double montant) {
+        try (Connection conn = ConnectionBD.getConnection()) {
+            String fetchSQL = "SELECT solde FROM compte WHERE numero = ?";
+            PreparedStatement fetchStmt = conn.prepareStatement(fetchSQL);
+            fetchStmt.setString(1, getNumero());
+            var rs = fetchStmt.executeQuery();
+
+            if (rs.next()) {
+                double soldeActuel = rs.getDouble("solde");
+                double nouveauSolde = soldeActuel + montant;
+
+                String updateSQL = "UPDATE compte SET solde = ? WHERE numero = ?";
+                PreparedStatement updateStmt = conn.prepareStatement(updateSQL);
+                updateStmt.setDouble(1, nouveauSolde);
+                updateStmt.setString(2, getNumero());
+
+                int rowsUpdated = updateStmt.executeUpdate();
+                if (rowsUpdated > 0) {
+                    setSolde(nouveauSolde); // update object
+                    System.out.println("Dépôt effectué avec succès. Nouveau solde : " + nouveauSolde);
+                    return true;
+                } else {
+                    System.out.println("Erreur lors de la mise à jour du solde.");
+                    return false;
+                }
+            } else {
+                System.out.println("Compte introuvable.");
+                return false;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 
 
 

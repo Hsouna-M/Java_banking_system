@@ -8,9 +8,9 @@ import java.util.Date;
 import java.util.Calendar;
 
 public class CompteEpargne extends Compte {
-    private static final double TAUX_INTERET = 0.05;
+    public static final double TAUX_INTERET = 0.05;
 
-    public CompteEpargne(String numero, String type) {
+    public CompteEpargne(String numero) {
         super(numero, "Epargne");
     }
 
@@ -62,6 +62,43 @@ public class CompteEpargne extends Compte {
         }
 
         return false;
+    }
+
+    @Override
+    public boolean deposer(double montant) {
+        try (Connection conn = ConnectionBD.getConnection()) {
+            String fetchSQL = "SELECT solde FROM compte WHERE numero = ?";
+            PreparedStatement fetchStmt = conn.prepareStatement(fetchSQL);
+            fetchStmt.setString(1, getNumero());
+            var rs = fetchStmt.executeQuery();
+
+            if (rs.next()) {
+                double soldeActuel = rs.getDouble("solde");
+                double nouveauSolde = soldeActuel + montant;
+
+                String updateSQL = "UPDATE compte SET solde = ? WHERE numero = ?";
+                PreparedStatement updateStmt = conn.prepareStatement(updateSQL);
+                updateStmt.setDouble(1, nouveauSolde);
+                updateStmt.setString(2, getNumero());
+
+                int rowsUpdated = updateStmt.executeUpdate();
+                if (rowsUpdated > 0) {
+                    setSolde(nouveauSolde); // update object
+                    System.out.println("Dépôt effectué avec succès. Nouveau solde : " + nouveauSolde);
+                    return true;
+                } else {
+                    System.out.println("Erreur lors de la mise à jour du solde.");
+                    return false;
+                }
+            } else {
+                System.out.println("Compte introuvable.");
+                return false;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
 
