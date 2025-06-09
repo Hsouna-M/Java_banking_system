@@ -295,7 +295,7 @@ public class Agent implements ServiceAuthentification {
         return null;
     }*/
 
-    public ResultSet consulterComptes() {
+   /* public ResultSet consulterComptes() {
         String sql = "SELECT * FROM compte";
         Connection conn = null;
         Statement stmt = null;
@@ -316,7 +316,7 @@ public class Agent implements ServiceAuthentification {
             }
         }
         return null;
-    }
+    }*/
 
     public List<Transaction> consulterTransactions() {
         List<Transaction> transactions = new ArrayList<>();
